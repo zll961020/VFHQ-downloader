@@ -3,14 +3,17 @@ import logging
 import multiprocessing
 import concurrent.futures
 import time
+import sys
 from tqdm import tqdm
 from video_downloader import VideoDownloader
 from video_processor import VideoProcessor
 from meta_parser import MetaParser
 from config import META_DIR, VIDEO_DIR, OUTPUT_DIR, VIDEO_NUM
 
+# 设置日志文件的编码为 UTF-8
 logging.basicConfig(filename='video_processing.log', level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+                    format='%(asctime)s - %(levelname)s - %(message)s',
+                    encoding='utf-8')
 
 total_downloads = 0
 successful_downloads = 0
@@ -38,7 +41,14 @@ def process_single_file(meta_file, meta_dir, video_dir, output_dir, progress_bar
             failed_downloads += 1
     except Exception as e:
         failed_downloads += 1
-        logging.error(f"Failed to process {meta_file}: {e}")
+        # 处理错误消息的编码
+        error_message = str(e)
+        if isinstance(error_message, bytes):
+            try:
+                error_message = error_message.decode('gbk')
+            except:
+                error_message = error_message.decode('utf-8', errors='ignore')
+        logging.error(f"Failed to process {meta_file}: {error_message}")
     finally:
         progress_bar.update(1)
 
@@ -47,11 +57,12 @@ def main():
     ensure_directories_exist()
     start_time = time.time()
 
-    max_workers = min(32, max(4, multiprocessing.cpu_count() - 1))
+    max_workers = 4 #min(32, max(4, multiprocessing.cpu_count() - 1))
 
     meta_files = [f for f in os.listdir(
         META_DIR) if f.endswith('.txt')][:VIDEO_NUM]
     total_videos = len(meta_files)
+    print(f'meta files: {meta_files}')
 
     with tqdm(total=total_videos, unit='file') as progress_bar:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
